@@ -1,11 +1,12 @@
 """Chatbot agent with tool calling capabilities"""
 
 import os
+import json
 from typing import List, Dict, Any, Optional
 from openai import OpenAI
 from dotenv import load_dotenv
 
-from .tools import ToolRegistry, Tool
+from .tools import ToolRegistry
 
 load_dotenv()
 
@@ -98,7 +99,7 @@ class ChatbotAgent:
             # Execute tool calls
             for tool_call in message.tool_calls:
                 tool_name = tool_call.function.name
-                tool_args = eval(tool_call.function.arguments)  # Parse JSON string
+                tool_args = json.loads(tool_call.function.arguments)  # Parse JSON string safely
                 
                 # Get and execute tool
                 tool = self.tool_registry.get(tool_name)
