@@ -151,9 +151,33 @@ class ChatbotAgent:
     
     def _extract_output_text(self, response) -> str:
         """Extract output text from Responses API response"""
-        # Standard Responses API response has output_text attribute
-        if hasattr(response, 'output_text') and response.output_text:
-            return str(response.output_text).strip()
+        # Check for items attribute first (Responses API primary structure)
+        if hasattr(response, 'items') and response.items:
+            for item in response.items:
+                # Check if item is a message
+                item_type = getattr(item, 'type', None) if hasattr(item, 'type') else (item.get('type') if isinstance(item, dict) else None)
+                if item_type == 'message':
+                    # Get content from message item
+                    if hasattr(item, 'content'):
+                        content = item.content
+                        if isinstance(content, str):
+                            return content.strip()
+                        # If content is a list, extract text from it
+                        if isinstance(content, list):
+                            for content_item in content:
+                                if isinstance(content_item, str):
+                                    return content_item.strip()
+                                if isinstance(content_item, dict) and 'text' in content_item:
+                                    return str(content_item['text']).strip()
+                    # Also check dict format
+                    if isinstance(item, dict):
+                        content = item.get('content', '')
+                        if isinstance(content, str):
+                            return content.strip()
+                        if isinstance(content, list):
+                            for content_item in content:
+                                if isinstance(content_item, str):
+                                    return content_item.strip()
         
         # Check output attribute
         if hasattr(response, 'output'):
@@ -167,19 +191,37 @@ class ChatbotAgent:
                         # Check for message type
                         if item.get('type') == 'message':
                             content = item.get('content', '')
-                            if content:
-                                return str(content).strip()
+                            if isinstance(content, str) and content:
+                                return content.strip()
+                            if isinstance(content, list):
+                                for content_item in content:
+                                    if isinstance(content_item, str):
+                                        return content_item.strip()
                         # Also check for text content directly
                         if 'text' in item:
                             return str(item['text']).strip()
                         if 'content' in item:
-                            return str(item['content']).strip()
+                            content = item['content']
+                            if isinstance(content, str):
+                                return content.strip()
                     elif isinstance(item, str):
                         return item.strip()
         
+        # Standard Responses API response has output_text attribute
+        # Note: output_text might be a config object, not the actual text
+        if hasattr(response, 'output_text') and response.output_text:
+            output_text = response.output_text
+            # If output_text is a string, return it
+            if isinstance(output_text, str):
+                return output_text.strip()
+            # If it's an object (like ResponseTextConfig), skip it and look elsewhere
+            # The actual text should be in items or output
+        
         # Check for text attribute directly
         if hasattr(response, 'text') and response.text:
-            return str(response.text).strip()
+            text = response.text
+            if isinstance(text, str):
+                return text.strip()
         
         return ""
     
