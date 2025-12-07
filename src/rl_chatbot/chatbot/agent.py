@@ -55,33 +55,24 @@ class ChatbotAgent:
         from .tools import create_default_tool_registry
         return create_default_tool_registry()
     
-    def chat(self, user_message: str, max_tool_calls: int = 5) -> str:
+    def chat(self, user_message: str, max_iterations: int = 10) -> str:
         """
         Process a user message and return a response using the Responses API
         
+        The Responses API handles tool execution automatically via conversation_id.
+        We iterate until we get a final text response.
+        
         Args:
             user_message: The user's message
-            max_tool_calls: Maximum number of tool calls in one turn
+            max_iterations: Maximum number of API calls to make (prevents infinite loops)
             
         Returns:
-            The chatbot's response
+            The chatbot's response text
         """
-        # Get tool schemas and convert to Responses API format
-        tool_schemas = self.tool_registry.get_tool_schemas()
-        tools = []
-        for schema in tool_schemas:
-            # Responses API expects tools with type, name, description, and parameters
-            # Extract the function definition from the schema
-            func_def = schema.get("function", {})
-            tools.append({
-                "type": "function",  # Required by Responses API
-                "name": func_def.get("name"),
-                "description": func_def.get("description", ""),
-                "parameters": func_def.get("parameters", {})
-            })
+        # Convert tool schemas to Responses API format
+        tools = self._prepare_tools()
         
         # Prepare request parameters
-        # Note: Responses API doesn't support temperature parameter
         request_params = {
             "model": self.model,
             "input": user_message,
@@ -93,112 +84,135 @@ class ChatbotAgent:
         if self.conversation_id:
             request_params["conversation_id"] = self.conversation_id
         
-        # Call Responses API
-        response = self.client.responses.create(**request_params)
-        
-        # Update conversation_id if provided in response
-        if hasattr(response, 'conversation_id') and response.conversation_id:
-            self.conversation_id = response.conversation_id
-        
-        # Get the output text - Responses API can have different response structures
-        output_text = ""
-        
-        # Check for output_text attribute
-        if hasattr(response, 'output_text') and response.output_text:
-            output_text = response.output_text
-        
-        # Check for output attribute (might be a list or string)
-        elif hasattr(response, 'output'):
-            output = response.output
-            if isinstance(output, list):
-                # Extract text from message items in the output list
-                for item in output:
-                    if isinstance(item, dict) and item.get('type') == 'message':
-                        content = item.get('content', '')
-                        if content:
-                            output_text = content
-                            break
-                    elif isinstance(item, str):
-                        output_text = item
-                        break
-            elif isinstance(output, str):
-                output_text = output
-        
-        # Check for message content directly
-        if not output_text and hasattr(response, 'message'):
-            msg = response.message
-            if isinstance(msg, dict):
-                output_text = msg.get('content', '')
-            elif hasattr(msg, 'content'):
-                output_text = msg.content or ""
-        
-        # Handle tool calls if present
-        tool_calls = None
-        if hasattr(response, 'tool_calls') and response.tool_calls:
-            tool_calls = response.tool_calls
-        elif hasattr(response, 'tool_use') and response.tool_use:
-            tool_calls = response.tool_use
-        elif hasattr(response, 'output') and isinstance(response.output, list):
-            # Check if output list contains tool calls
-            for item in response.output:
-                if isinstance(item, dict) and item.get('type') in ['function_call', 'tool_call']:
-                    if tool_calls is None:
-                        tool_calls = []
-                    tool_calls.append(item)
-        
-        if tool_calls:
-            # Execute tool calls
-            tool_results = []
-            for tool_call in tool_calls:
-                # Handle different response formats
-                if isinstance(tool_call, dict):
-                    tool_name = tool_call.get('name', '') or tool_call.get('function', {}).get('name', '')
-                    tool_args = tool_call.get('arguments', {}) or tool_call.get('function', {}).get('arguments', {})
-                else:
-                    # Assume it's an object with attributes
-                    tool_name = getattr(tool_call, 'name', '')
-                    tool_args = getattr(tool_call, 'arguments', {})
-                    if not tool_name:
-                        func = getattr(tool_call, 'function', None)
-                        if func:
-                            tool_name = getattr(func, 'name', '')
-                            tool_args = getattr(func, 'arguments', {})
-                        else:
-                            continue
-                
-                if isinstance(tool_args, str):
-                    try:
-                        tool_args = json.loads(tool_args)
-                    except json.JSONDecodeError:
-                        tool_args = {}
-                
-                # Get and execute tool
-                tool = self.tool_registry.get(tool_name)
-                if tool:
-                    try:
-                        tool_result = tool.execute(**tool_args)
-                    except Exception as e:
-                        tool_result = f"Error executing tool: {str(e)}"
-                else:
-                    tool_result = f"Error: Tool '{tool_name}' not found"
-                
-                tool_results.append(tool_result)
+        # Iterate until we get a final response
+        # The Responses API may return tool calls that need execution
+        for iteration in range(max_iterations):
+            # Call Responses API
+            response = self.client.responses.create(**request_params)
             
-            # Make a follow-up call to get the final response with tool results
-            if tool_results and max_tool_calls > 0:
-                # For Responses API, when tools are called, we need to make another call
-                # to get the final response. The API handles tool execution via conversation_id.
-                # If output_text is empty, make a follow-up call with a continuation message
-                if not output_text.strip():
-                    # Make a follow-up call to continue the conversation
-                    # The Responses API will use the conversation_id to continue
-                    # We pass a simple continuation message
-                    return self.chat("Please provide the final answer based on the tool results.", max_tool_calls - 1)
-                else:
+            # Update conversation_id for stateful conversations
+            if hasattr(response, 'conversation_id') and response.conversation_id:
+                self.conversation_id = response.conversation_id
+                request_params["conversation_id"] = self.conversation_id
+            
+            # Get output text from response
+            output_text = self._extract_output_text(response)
+            
+            # Check for tool calls that need execution
+            tool_calls = self._extract_tool_calls(response)
+            
+            if tool_calls:
+                # Execute tools and prepare tool results for next iteration
+                tool_results = self._execute_tools(tool_calls)
+                
+                # If we have tool results but no output text, continue the conversation
+                # The Responses API will use the conversation_id to continue
+                if not output_text.strip() and tool_results:
+                    # Continue with empty input - API will use conversation context
+                    request_params["input"] = ""
+                    continue
+                elif output_text.strip():
                     # We have output text, return it
                     return output_text
+            else:
+                # No tool calls, return the output text
+                return output_text or ""
         
-        return output_text
+        # If we've exhausted iterations, return whatever we have
+        return output_text or ""
+    
+    def _prepare_tools(self) -> list:
+        """Convert tool schemas to Responses API format"""
+        tool_schemas = self.tool_registry.get_tool_schemas()
+        tools = []
+        for schema in tool_schemas:
+            func_def = schema.get("function", {})
+            tools.append({
+                "type": "function",
+                "name": func_def.get("name"),
+                "description": func_def.get("description", ""),
+                "parameters": func_def.get("parameters", {})
+            })
+        return tools
+    
+    def _extract_output_text(self, response) -> str:
+        """Extract output text from Responses API response"""
+        # Standard Responses API response has output_text attribute
+        if hasattr(response, 'output_text') and response.output_text:
+            return response.output_text
+        
+        # Fallback: check output attribute
+        if hasattr(response, 'output'):
+            output = response.output
+            if isinstance(output, str):
+                return output
+            elif isinstance(output, list):
+                # Extract text from message items
+                for item in output:
+                    if isinstance(item, dict) and item.get('type') == 'message':
+                        return item.get('content', '')
+        
+        return ""
+    
+    def _extract_tool_calls(self, response) -> list:
+        """Extract tool calls from Responses API response"""
+        tool_calls = []
+        
+        # Check standard attributes
+        if hasattr(response, 'tool_calls') and response.tool_calls:
+            tool_calls = response.tool_calls if isinstance(response.tool_calls, list) else [response.tool_calls]
+        elif hasattr(response, 'tool_use') and response.tool_use:
+            tool_calls = response.tool_use if isinstance(response.tool_use, list) else [response.tool_use]
+        
+        # Check output list for tool calls
+        if not tool_calls and hasattr(response, 'output') and isinstance(response.output, list):
+            for item in response.output:
+                if isinstance(item, dict) and item.get('type') in ['function_call', 'tool_call', 'function']:
+                    tool_calls.append(item)
+        
+        return tool_calls
+    
+    def _execute_tools(self, tool_calls: list) -> list:
+        """Execute tool calls and return results"""
+        tool_results = []
+        
+        for tool_call in tool_calls:
+            # Extract tool name and arguments
+            if isinstance(tool_call, dict):
+                tool_name = tool_call.get('name', '') or tool_call.get('function', {}).get('name', '')
+                tool_args = tool_call.get('arguments', {}) or tool_call.get('function', {}).get('arguments', {})
+            else:
+                # Object with attributes
+                tool_name = getattr(tool_call, 'name', '')
+                tool_args = getattr(tool_call, 'arguments', {})
+                if not tool_name:
+                    func = getattr(tool_call, 'function', None)
+                    if func:
+                        tool_name = getattr(func, 'name', '')
+                        tool_args = getattr(func, 'arguments', {})
+            
+            if not tool_name:
+                continue
+            
+            # Parse arguments if string
+            if isinstance(tool_args, str):
+                try:
+                    tool_args = json.loads(tool_args)
+                except json.JSONDecodeError:
+                    tool_args = {}
+            
+            # Execute tool
+            tool = self.tool_registry.get(tool_name)
+            if tool:
+                try:
+                    result = tool.execute(**tool_args)
+                    tool_results.append(result)
+                except Exception as e:
+                    tool_results.append(f"Error: {str(e)}")
+            else:
+                tool_results.append(f"Error: Tool '{tool_name}' not found")
+        
+        return tool_results
     
     def reset(self, clear_conversation_id: bool = False):
         """Reset conversation state and optionally clear conversation ID"""
