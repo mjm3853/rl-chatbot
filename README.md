@@ -66,9 +66,14 @@ pip install -e .
 
 2. Set up environment variables:
 ```bash
-export OPENAI_API_KEY=your_key_here  # If using OpenAI
-# Or configure other LLM providers
+# Copy the sample environment file
+cp .env.sample .env
+
+# Edit .env and add your API keys
+# OPENAI_API_KEY=your_key_here
 ```
+
+The `.env` file is gitignored for security. See `.env.sample` for available configuration options.
 
 ### Basic Usage
 

@@ -20,10 +20,15 @@ pip install -e .
 
 2. **Set up environment variables**:
 ```bash
-# Create a .env file
-echo "OPENAI_API_KEY=your_key_here" > .env
+# Copy the sample environment file
+cp .env.sample .env
 
-# Or export directly
+# Edit .env and add your API keys
+# The .env file is gitignored for security
+```
+
+Or export directly:
+```bash
 export OPENAI_API_KEY=your_key_here
 ```
 
