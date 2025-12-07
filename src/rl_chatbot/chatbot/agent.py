@@ -81,10 +81,10 @@ class ChatbotAgent:
             })
         
         # Prepare request parameters
+        # Note: Responses API doesn't support temperature parameter
         request_params = {
             "model": self.model,
             "input": user_message,
-            "temperature": self.temperature,
         }
         
         if tools:
