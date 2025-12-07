@@ -23,7 +23,7 @@ class ChatbotAgent:
     ):
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.model = model or os.getenv("OPENAI_MODEL", "gpt-4o")
-        # temperature not used by Responses API, kept for completeness
+        # temperature not used by Responses API, but kept for completeness
         temp_env = os.getenv("OPENAI_TEMPERATURE")
         self.temperature = (
             temperature
@@ -40,38 +40,26 @@ class ChatbotAgent:
     def chat(self, user_message: str, max_iterations: int = 6) -> str:
         """Run a turn with Responses API and local tool execution."""
         tools = self._prepare_tools()
-        inputs: List[Dict[str, Any]] = [
-            {"role": "user", "content": user_message}
-        ]
-
-        conv_id = self.conversation_id
+        messages: List[Dict[str, Any]] = [{"role": "user", "content": user_message}]
         last_text = ""
 
-        for _ in range(max_iterations):
+        for iteration in range(max_iterations):
             response = self.client.responses.create(
                 model=self.model,
-                input=inputs,
-                tools=tools,
-                conversation_id=conv_id,
+                input=messages,
+                tools=tools if iteration == 0 else None,  # send tools only first call
             )
 
-            # Update conversation id
-            if getattr(response, "conversation_id", None):
-                conv_id = response.conversation_id
-                self.conversation_id = conv_id
-
             output_items = self._get_output_items(response)
-            # Extract any direct text message
+
             text = self._extract_message_text(output_items)
             if text:
                 last_text = text
 
-            # Collect function/tool calls
             tool_calls = self._extract_function_calls(output_items)
             if not tool_calls:
                 return last_text or "No response from model."
 
-            # Execute tool calls and append outputs
             call_outputs: List[Dict[str, Any]] = []
             for call in tool_calls:
                 name = call.get("name", "")
@@ -90,9 +78,8 @@ class ChatbotAgent:
                     }
                 )
 
-            # Append model outputs and tool outputs, then call again
-            inputs.extend(output_items)
-            inputs.extend(call_outputs)
+            messages.extend(output_items)
+            messages.extend(call_outputs)
 
         return last_text or "No response from model."
 
@@ -100,27 +87,26 @@ class ChatbotAgent:
         tools = []
         for schema in self.tool_registry.get_tool_schemas():
             func_def = schema.get("function", {})
-            tools.append({
-                "type": "function",
-                "name": func_def.get("name"),
-                "description": func_def.get("description", ""),
-                "parameters": func_def.get("parameters", {}),
-            })
+            tools.append(
+                {
+                    "type": "function",
+                    "name": func_def.get("name"),
+                    "description": func_def.get("description", ""),
+                    "parameters": func_def.get("parameters", {}),
+                }
+            )
         return tools
 
     def _get_output_items(self, response) -> List[Dict[str, Any]]:
-        # Responses API returns response.output (list of items)
-        if hasattr(response, "output") and response.output:
+        if getattr(response, "output", None):
             return [self._normalize_item(item) for item in response.output]
-        # fallback to items attribute
-        if hasattr(response, "items") and response.items:
+        if getattr(response, "items", None):
             return [self._normalize_item(item) for item in response.items]
         return []
 
     def _normalize_item(self, item: Any) -> Dict[str, Any]:
         if isinstance(item, dict):
             return item
-        # object from SDK
         d: Dict[str, Any] = {}
         for attr in ["type", "role", "content", "name", "arguments", "call_id", "id"]:
             if hasattr(item, attr):
@@ -129,13 +115,11 @@ class ChatbotAgent:
 
     def _extract_message_text(self, items: List[Dict[str, Any]]) -> str:
         for item in items:
-            if item.get("type") == "message":
+            if item.get("type") == "message" or item.get("role") == "assistant":
                 content = item.get("content", "")
-                if isinstance(content, str):
-                    if content.strip():
-                        return content.strip()
-                elif isinstance(content, list):
-                    # content might be list of text blocks
+                if isinstance(content, str) and content.strip():
+                    return content.strip()
+                if isinstance(content, list):
                     for c in content:
                         if isinstance(c, str) and c.strip():
                             return c.strip()
