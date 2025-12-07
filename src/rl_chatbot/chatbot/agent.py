@@ -1,4 +1,4 @@
-"""Chatbot agent using the OpenAI Responses API with proper tool-call loop."""
+"""Chatbot agent using the OpenAI Responses API with proper function_call_output loop."""
 
 import os
 import json
@@ -23,7 +23,6 @@ class ChatbotAgent:
     ):
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.model = model or os.getenv("OPENAI_MODEL", "gpt-4o")
-        # temperature not used by Responses API, but kept for completeness
         temp_env = os.getenv("OPENAI_TEMPERATURE")
         self.temperature = (
             temperature
@@ -50,6 +49,11 @@ class ChatbotAgent:
                 tools=tools if iteration == 0 else None,  # send tools only first call
             )
 
+            # Direct text if provided
+            ot = getattr(response, "output_text", None)
+            if isinstance(ot, str) and ot.strip():
+                return ot.strip()
+
             output_items = self._get_output_items(response)
 
             text = self._extract_message_text(output_items)
@@ -63,7 +67,7 @@ class ChatbotAgent:
             call_outputs: List[Dict[str, Any]] = []
             for call in tool_calls:
                 name = call.get("name", "")
-                call_id = call.get("call_id") or call.get("id")
+                call_id = call.get("call_id") or call.get("tool_call_id") or call.get("id")
                 args_raw = call.get("arguments", "{}")
                 try:
                     args = json.loads(args_raw) if isinstance(args_raw, str) else args_raw
@@ -80,6 +84,7 @@ class ChatbotAgent:
 
             messages.extend(output_items)
             messages.extend(call_outputs)
+            tools = None  # only send tools on first iteration
 
         return last_text or "No response from model."
 
@@ -98,17 +103,19 @@ class ChatbotAgent:
         return tools
 
     def _get_output_items(self, response) -> List[Dict[str, Any]]:
+        items: List[Dict[str, Any]] = []
         if getattr(response, "output", None):
-            return [self._normalize_item(item) for item in response.output]
-        if getattr(response, "items", None):
-            return [self._normalize_item(item) for item in response.items]
-        return []
+            items = [self._normalize_item(item) for item in response.output]
+        elif getattr(response, "items", None):
+            items = [self._normalize_item(item) for item in response.items]
+        # Filter out reasoning items to avoid summary requirements when re-sending
+        return [item for item in items if item.get("type") != "reasoning"]
 
     def _normalize_item(self, item: Any) -> Dict[str, Any]:
         if isinstance(item, dict):
             return item
         d: Dict[str, Any] = {}
-        for attr in ["type", "role", "content", "name", "arguments", "call_id", "id"]:
+        for attr in ["type", "role", "content", "name", "arguments", "call_id", "id", "tool_call_id"]:
             if hasattr(item, attr):
                 d[attr] = getattr(item, attr)
         return d
