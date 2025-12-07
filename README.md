@@ -97,6 +97,102 @@ uv run python -m rl_chatbot.evaluation.evaluator
 uv run python -m rl_chatbot.rl.trainer
 ```
 
+## 🌐 API Server
+
+The project includes a FastAPI server that provides REST API and WebSocket endpoints for building UIs and integrations.
+
+### Start the Server
+
+```bash
+uv run server
+```
+
+The server starts at `http://localhost:8000`. View interactive API docs at `http://localhost:8000/docs`.
+
+### Configuration
+
+Configure via environment variables in `.env`:
+
+```bash
+# Database location (default: ./data/rl_chatbot.db)
+DATABASE_URL=sqlite+aiosqlite:///./data/rl_chatbot.db
+
+# Server settings
+HOST=0.0.0.0
+PORT=8000
+DEBUG=false
+```
+
+### API Endpoints
+
+| Category | Endpoint | Description |
+|----------|----------|-------------|
+| **Health** | `GET /api/v1/health` | Health check |
+| **Agents** | `GET /api/v1/agents` | List agents |
+| | `POST /api/v1/agents` | Create agent |
+| | `GET /api/v1/agents/{id}` | Get agent |
+| | `PATCH /api/v1/agents/{id}` | Update agent |
+| | `DELETE /api/v1/agents/{id}` | Delete agent |
+| **Chat** | `POST /api/v1/chat` | Send message, get response |
+| | `WS /api/v1/chat/ws/{agent_id}` | Real-time chat WebSocket |
+| **Conversations** | `GET /api/v1/conversations` | List conversations |
+| | `GET /api/v1/conversations/{id}` | Get conversation with messages |
+| | `DELETE /api/v1/conversations/{id}` | Delete conversation |
+| **Test Cases** | `GET /api/v1/test-cases` | List test cases |
+| | `POST /api/v1/test-cases` | Create test case |
+| | `POST /api/v1/test-cases/bulk` | Bulk import |
+| **Evaluations** | `GET /api/v1/evaluations` | List evaluation runs |
+| | `POST /api/v1/evaluations` | Start evaluation (background) |
+| | `GET /api/v1/evaluations/{id}` | Get run with results |
+| | `WS /api/v1/evaluations/ws/{id}` | Progress WebSocket |
+| **Training** | `GET /api/v1/training` | List training runs |
+| | `POST /api/v1/training` | Start training (background) |
+| | `GET /api/v1/training/{id}` | Get run with episodes |
+| | `POST /api/v1/training/{id}/stop` | Stop training |
+| | `WS /api/v1/training/ws/{id}` | Progress WebSocket |
+| **Tools** | `GET /api/v1/tools` | List available tools |
+
+### Example: Chat via API
+
+```bash
+# Create an agent
+curl -X POST http://localhost:8000/api/v1/agents/ \
+  -H "Content-Type: application/json" \
+  -d '{"name": "My Agent", "model": "gpt-4o", "temperature": 0.7}'
+
+# Chat with the agent (use the agent_id from above)
+curl -X POST http://localhost:8000/api/v1/chat/ \
+  -H "Content-Type: application/json" \
+  -d '{"agent_id": "AGENT_UUID", "message": "What is 15 * 23?"}'
+```
+
+### WebSocket Support
+
+Connect to WebSocket endpoints for real-time updates:
+
+- **Chat**: `ws://localhost:8000/api/v1/chat/ws/{agent_id}` - Send/receive messages in real-time
+- **Evaluation Progress**: `ws://localhost:8000/api/v1/evaluations/ws/{run_id}` - Monitor evaluation progress
+- **Training Progress**: `ws://localhost:8000/api/v1/training/ws/{run_id}` - Monitor training progress
+
+### Database
+
+The server uses SQLite for persistence with the following tables:
+- `agents` - Agent configurations
+- `conversations` / `messages` / `tool_calls` - Chat history
+- `test_cases` - Evaluation test cases
+- `evaluation_runs` / `evaluation_results` - Evaluation data
+- `training_runs` / `training_episodes` - Training data
+
+Database migrations are managed with Alembic:
+
+```bash
+# Run migrations (auto-runs on server start)
+uv run alembic upgrade head
+
+# Create new migration after model changes
+uv run alembic revision --autogenerate -m "description"
+```
+
 ## 🏗️ Project Structure
 
 ```
@@ -104,7 +200,7 @@ rl-chatbot/
 ├── src/rl_chatbot/
 │   ├── agents/            # Agent implementations for different frameworks
 │   │   ├── base.py       # BaseAgent interface - all agents must implement
-│   │   ├── openai/       # OpenAI Chat Completions API implementation
+│   │   ├── openai/       # OpenAI Responses API implementation
 │   │   ├── pydantic_ai/  # Pydantic AI (placeholder)
 │   │   └── langgraph/    # LangGraph (placeholder)
 │   ├── tools/            # Modular tool system (shared across all agents)
@@ -117,13 +213,23 @@ rl-chatbot/
 │   ├── evaluation/       # Evaluation framework
 │   │   ├── evaluator.py  # Single & multi-agent evaluators
 │   │   └── metrics.py    # Performance metrics
-│   └── rl/               # Reinforcement learning components
-│       ├── trainer.py    # Single & multi-agent RL trainers
-│       └── reward.py     # Reward function design
+│   ├── rl/               # Reinforcement learning components
+│   │   ├── trainer.py    # Single & multi-agent RL trainers
+│   │   └── reward.py     # Reward function design
+│   └── server/           # FastAPI server for UI/integrations
+│       ├── main.py       # FastAPI app entry point
+│       ├── config.py     # Server configuration
+│       ├── database.py   # Async SQLite database
+│       ├── models/       # SQLModel database models
+│       ├── schemas/      # Pydantic request/response schemas
+│       ├── routers/      # API route handlers
+│       ├── services/     # Business logic layer
+│       └── websocket/    # WebSocket handlers
+├── migrations/           # Alembic database migrations
 ├── examples/             # Example scripts
 ├── docs/                 # Documentation
 ├── tests/                # Unit tests
-├── data/                 # Training and evaluation data
+├── data/                 # Database and evaluation data
 └── checkpoints/          # Model checkpoints
 ```
 

@@ -23,17 +23,18 @@ cp .env.sample .env
 
 ### Running Components
 ```bash
-# Run interactive chatbot
+# Run interactive chatbot (CLI)
 uv run chatbot
-# Or: uv run python -m rl_chatbot.chatbot.agent
 
-# Evaluate chatbot on test cases
+# Evaluate chatbot on test cases (CLI)
 uv run evaluate
-# Or: uv run python -m rl_chatbot.evaluation.evaluator
 
-# Run RL training
+# Run RL training (CLI)
 uv run train
-# Or: uv run python -m rl_chatbot.rl.trainer
+
+# Start API server
+uv run server
+# Access API docs at http://localhost:8000/docs
 ```
 
 ### Testing & Code Quality
@@ -110,6 +111,20 @@ ruff check src/ tests/
    - **RewardFunction**: Computes composite rewards for training
    - Currently a scaffold - full RL implementation (PPO, DQN) intended for future development
 
+7. **API Server** (`src/rl_chatbot/server/`)
+   - FastAPI-based REST API for UI integration
+   - SQLite database with SQLModel ORM for persistence
+   - WebSocket support for real-time chat and progress updates
+   - **Key endpoints**:
+     - `/api/v1/agents` - Agent CRUD
+     - `/api/v1/chat` - REST and WebSocket chat
+     - `/api/v1/conversations` - Conversation history
+     - `/api/v1/test-cases` - Test case management
+     - `/api/v1/evaluations` - Run evaluations with progress via WebSocket
+     - `/api/v1/training` - Run training with progress via WebSocket
+     - `/api/v1/tools` - List available tools
+   - **Database migrations**: Managed with Alembic (`uv run alembic upgrade head`)
+
 ### Key Design Patterns
 
 **OpenAI Responses API Flow**:
@@ -172,25 +187,34 @@ Required in `.env`:
 src/rl_chatbot/
 ├── agents/                    # Agent implementations for different frameworks
 │   ├── base.py               # BaseAgent interface - all agents must implement
-│   ├── openai/               # OpenAI Chat Completions API implementation
+│   ├── openai/               # OpenAI Responses API implementation
 │   │   └── agent.py          # OpenAIAgent class
 │   ├── pydantic_ai/          # Pydantic AI implementation (placeholder)
-│   │   └── agent.py          # PydanticAIAgent class
 │   └── langgraph/            # LangGraph implementation (placeholder)
-│       └── agent.py          # LangGraphAgent class
-├── tools.py                   # Tool definitions and registry (framework-agnostic)
+├── tools/                     # Tool definitions and registry
+│   ├── base.py               # Tool and ToolRegistry classes
+│   ├── calculate.py          # Calculator tool
+│   ├── search.py             # Search tool (mock)
+│   └── weather.py            # Weather tool (mock)
 ├── factory.py                 # AgentFactory and AgentPool for multi-agent
 ├── evaluation/
-│   ├── evaluator.py          # Single and multi-agent evaluators (uses BaseAgent)
+│   ├── evaluator.py          # Single and multi-agent evaluators
 │   └── metrics.py            # Metric calculations
-└── rl/
-    ├── trainer.py            # Single and multi-agent RL trainers (uses BaseAgent)
-    └── reward.py             # Reward function
+├── rl/
+│   ├── trainer.py            # RL trainers (scaffold)
+│   └── reward.py             # Reward function
+└── server/                    # FastAPI server
+    ├── main.py               # FastAPI app entry point
+    ├── config.py             # Server configuration
+    ├── database.py           # SQLite database connection
+    ├── models/               # SQLModel database models
+    ├── schemas/              # Pydantic request/response schemas
+    ├── routers/              # API route handlers
+    ├── services/             # Business logic layer
+    └── websocket/            # WebSocket handlers
 
-examples/
-├── multi_agent_example.py    # Examples of multi-agent usage
-docs/
-└── ADDING_NEW_AGENT_FRAMEWORK.md  # Guide for adding new frameworks
+migrations/                    # Alembic database migrations
+data/                         # Database and evaluation results
 ```
 
 ## Dependencies

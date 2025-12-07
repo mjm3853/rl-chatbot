@@ -6,7 +6,7 @@ must inherit from, ensuring a consistent interface across different frameworks
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 
 class BaseAgent(ABC):
