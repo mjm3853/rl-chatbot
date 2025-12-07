@@ -29,6 +29,11 @@ dev = [
     "mypy>=1.5.0",
 ]
 
+[project.scripts]
+chatbot = "rl_chatbot.chatbot.agent:main"
+evaluate = "rl_chatbot.evaluation.evaluator:main"
+train = "rl_chatbot.rl.trainer:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

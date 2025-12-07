@@ -38,7 +38,7 @@ export OPENAI_API_KEY=your_key_here
 
 Run the chatbot interactively:
 ```bash
-uv run rl_chatbot.chatbot.agent
+uv run chatbot
 ```
 
 Try asking:
@@ -50,7 +50,7 @@ Try asking:
 
 Evaluate the chatbot on test cases:
 ```bash
-uv run rl_chatbot.evaluation.evaluator
+uv run evaluate
 ```
 
 This will:
@@ -62,7 +62,7 @@ This will:
 
 Begin training the chatbot with reinforcement learning:
 ```bash
-uv run rl_chatbot.rl.trainer
+uv run train
 ```
 
 This will:
