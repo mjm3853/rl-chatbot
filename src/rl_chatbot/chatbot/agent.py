@@ -103,11 +103,11 @@ class ChatbotAgent:
         # Get the output text
         output_text = ""
         if hasattr(response, 'output_text'):
-            output_text = response.output_text
+            output_text = response.output_text or ""
         elif hasattr(response, 'output'):
-            output_text = response.output
+            output_text = response.output or ""
         else:
-            output_text = str(response)
+            output_text = str(response) if response else ""
         
         # Handle tool calls if present
         tool_calls = None
@@ -122,16 +122,19 @@ class ChatbotAgent:
             for tool_call in tool_calls:
                 # Handle different response formats
                 if isinstance(tool_call, dict):
-                    tool_name = tool_call.get('function', {}).get('name', '')
-                    tool_args = tool_call.get('function', {}).get('arguments', {})
+                    tool_name = tool_call.get('name', '') or tool_call.get('function', {}).get('name', '')
+                    tool_args = tool_call.get('arguments', {}) or tool_call.get('function', {}).get('arguments', {})
                 else:
                     # Assume it's an object with attributes
-                    func = getattr(tool_call, 'function', None)
-                    if func:
-                        tool_name = getattr(func, 'name', '')
-                        tool_args = getattr(func, 'arguments', {})
-                    else:
-                        continue
+                    tool_name = getattr(tool_call, 'name', '')
+                    tool_args = getattr(tool_call, 'arguments', {})
+                    if not tool_name:
+                        func = getattr(tool_call, 'function', None)
+                        if func:
+                            tool_name = getattr(func, 'name', '')
+                            tool_args = getattr(func, 'arguments', {})
+                        else:
+                            continue
                 
                 if isinstance(tool_args, str):
                     try:
@@ -151,10 +154,19 @@ class ChatbotAgent:
                 
                 tool_results.append(tool_result)
             
-            # Make a follow-up call with tool results if needed
+            # Make a follow-up call to get the final response with tool results
             if tool_results and max_tool_calls > 0:
-                follow_up_message = f"{user_message}\n\nTool results: {', '.join(str(r) for r in tool_results)}"
-                return self.chat(follow_up_message, max_tool_calls - 1)
+                # For Responses API, when tools are called, we need to make another call
+                # to get the final response. The API handles tool execution via conversation_id.
+                # If output_text is empty, make a follow-up call with a continuation message
+                if not output_text.strip():
+                    # Make a follow-up call to continue the conversation
+                    # The Responses API will use the conversation_id to continue
+                    # We pass a simple continuation message
+                    return self.chat("Please provide the final answer based on the tool results.", max_tool_calls - 1)
+                else:
+                    # We have output text, return it
+                    return output_text
         
         return output_text
     
