@@ -59,8 +59,14 @@ class ChatbotAgent:
         # Process with potential tool calls
         tool_calls_made = 0
         while tool_calls_made < max_tool_calls:
-            # Prepare messages for API call
-            messages = self.conversation_history.copy()
+            # Prepare messages for API call - filter out empty tool_calls
+            messages = []
+            for msg in self.conversation_history:
+                msg_copy = msg.copy()
+                # Remove tool_calls if it's empty or None
+                if "tool_calls" in msg_copy and not msg_copy["tool_calls"]:
+                    msg_copy.pop("tool_calls", None)
+                messages.append(msg_copy)
             
             # Get tool schemas for function calling
             tools = self.tool_registry.get_tool_schemas()
@@ -75,11 +81,13 @@ class ChatbotAgent:
             
             message = response.choices[0].message
             
-            # Add assistant message to history
-            self.conversation_history.append({
+            # Build assistant message - only include tool_calls if not empty
+            assistant_msg = {
                 "role": "assistant",
                 "content": message.content,
-                "tool_calls": [
+            }
+            if message.tool_calls:
+                assistant_msg["tool_calls"] = [
                     {
                         "id": tc.id,
                         "type": tc.type,
@@ -88,9 +96,11 @@ class ChatbotAgent:
                             "arguments": tc.function.arguments
                         }
                     }
-                    for tc in (message.tool_calls or [])
+                    for tc in message.tool_calls
                 ]
-            })
+            
+            # Add assistant message to history
+            self.conversation_history.append(assistant_msg)
             
             # If no tool calls, we're done
             if not message.tool_calls:
@@ -122,7 +132,15 @@ class ChatbotAgent:
                 tool_calls_made += 1
         
         # If we hit max tool calls, get final response
-        messages = self.conversation_history.copy()
+        # Filter out empty tool_calls from messages
+        messages = []
+        for msg in self.conversation_history:
+            msg_copy = msg.copy()
+            # Remove tool_calls if it's empty or None
+            if "tool_calls" in msg_copy and not msg_copy["tool_calls"]:
+                msg_copy.pop("tool_calls", None)
+            messages.append(msg_copy)
+        
         response = self.client.chat.completions.create(
             model=self.model,
             messages=messages,
