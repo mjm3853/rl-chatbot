@@ -19,7 +19,7 @@ from ..websocket.manager import manager
 router = APIRouter()
 
 
-@router.post("/", response_model=TrainingRunListItem)
+@router.post("", response_model=TrainingRunListItem)
 async def start_training(
     request: TrainingRequest,
     session: AsyncSession = Depends(get_session),
@@ -46,7 +46,7 @@ async def start_training(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/", response_model=List[TrainingRunListItem])
+@router.get("", response_model=List[TrainingRunListItem])
 async def list_training_runs(
     agent_id: Optional[UUID] = Query(None, description="Filter by agent ID"),
     skip: int = 0,

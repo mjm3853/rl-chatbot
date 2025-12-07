@@ -1,0 +1,152 @@
+/* Blueprint Design System */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  /* Background */
+  --bg-primary: #0a0e14;
+  --bg-secondary: #0d1117;
+  --bg-tertiary: #161b22;
+  --bg-hover: #1c2128;
+
+  /* Accent */
+  --accent: #00d9ff;
+  --accent-dim: #00d9ff33;
+  --accent-hover: #00b8d9;
+  --success: #00ff88;
+  --success-dim: #00ff8833;
+  --warning: #ffcc00;
+  --warning-dim: #ffcc0033;
+  --error: #ff4444;
+  --error-dim: #ff444433;
+
+  /* Text */
+  --text: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-muted: #484f58;
+
+  /* Borders */
+  --border: #21262d;
+  --border-light: #30363d;
+
+  /* Typography */
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --font-size-xs: 10px;
+  --font-size-sm: 12px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+
+  /* Sidebar */
+  --sidebar-width: 200px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  background-color: var(--bg-primary);
+  color: var(--text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-light);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: 0.5px;
+}
+
+h1 { font-size: var(--font-size-lg); }
+h2 { font-size: var(--font-size-md); }
+h3 { font-size: var(--font-size-sm); }
+
+p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Code */
+code, pre {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  background: var(--bg-tertiary);
+  border-radius: 2px;
+}
+
+code {
+  padding: 2px 4px;
+}
+
+pre {
+  padding: var(--spacing-md);
+  overflow-x: auto;
+  border: 1px solid var(--border);
+}
+
+/* Selection */
+::selection {
+  background: var(--accent-dim);
+  color: var(--text);
+}
+
+/* Focus */
+:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Grid pattern overlay (optional) */
+.grid-pattern {
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 20px 20px;
+  background-position: -1px -1px;
+}

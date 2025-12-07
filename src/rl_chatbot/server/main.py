@@ -31,9 +31,12 @@ app = FastAPI(
 )
 
 # Configure CORS
+# Note: allow_credentials=True is incompatible with allow_origins=["*"]
+# Use allow_origin_regex for flexible matching in development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=settings.cors_origins if "*" not in settings.cors_origins else [],
+    allow_origin_regex=r"http://localhost:\d+" if "*" in settings.cors_origins else None,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

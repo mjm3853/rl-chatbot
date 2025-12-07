@@ -1,0 +1,159 @@
+.headerControls {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.convId {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.chatContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-md);
+}
+
+.emptyState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.message {
+  margin-bottom: var(--spacing-lg);
+}
+
+.message.user {
+  padding-left: var(--spacing-xl);
+}
+
+.message.assistant {
+  background: var(--bg-tertiary);
+  padding: var(--spacing-md);
+  border-radius: 2px;
+  border-left: 2px solid var(--accent);
+}
+
+.messageHeader {
+  margin-bottom: var(--spacing-xs);
+}
+
+.role {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+}
+
+.message.user .role {
+  color: var(--text-muted);
+}
+
+.message.assistant .role {
+  color: var(--accent);
+}
+
+.messageContent {
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.toolCalls {
+  margin-bottom: var(--spacing-sm);
+}
+
+.toolCall {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: var(--spacing-sm);
+  margin-bottom: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+}
+
+.toolHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-xs);
+}
+
+.toolName {
+  color: var(--warning);
+  font-weight: 500;
+}
+
+.toolDuration {
+  color: var(--text-muted);
+}
+
+.toolArgs {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.toolResult {
+  margin-top: var(--spacing-xs);
+  color: var(--success);
+}
+
+.arrow {
+  color: var(--text-muted);
+}
+
+.thinking {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  color: var(--text-muted);
+  padding: var(--spacing-md);
+}
+
+.inputArea {
+  display: flex;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  border-top: 1px solid var(--border);
+  background: var(--bg-tertiary);
+}
+
+.input {
+  flex: 1;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--text);
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

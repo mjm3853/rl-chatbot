@@ -18,7 +18,7 @@ class ToolSchema(BaseModel):
     parameters: dict[str, Any]
 
 
-@router.get("/", response_model=List[ToolSchema])
+@router.get("", response_model=List[ToolSchema])
 async def list_tools():
     """List all available tools."""
     registry = create_default_tool_registry()

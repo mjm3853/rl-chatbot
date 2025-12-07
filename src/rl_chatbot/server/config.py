@@ -22,8 +22,8 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-4o"
     openai_temperature: float = 1.0
 
-    # CORS
-    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
+    # CORS - allow all origins in development
+    cors_origins: list[str] = ["*"]
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -19,7 +19,7 @@ from ..websocket.manager import manager
 router = APIRouter()
 
 
-@router.post("/", response_model=EvaluationRunListItem)
+@router.post("", response_model=EvaluationRunListItem)
 async def start_evaluation(
     request: EvaluationRequest,
     session: AsyncSession = Depends(get_session),
@@ -45,7 +45,7 @@ async def start_evaluation(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/", response_model=List[EvaluationRunListItem])
+@router.get("", response_model=List[EvaluationRunListItem])
 async def list_evaluations(
     agent_id: Optional[UUID] = Query(None, description="Filter by agent ID"),
     skip: int = 0,

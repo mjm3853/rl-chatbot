@@ -174,6 +174,47 @@ Connect to WebSocket endpoints for real-time updates:
 - **Evaluation Progress**: `ws://localhost:8000/api/v1/evaluations/ws/{run_id}` - Monitor evaluation progress
 - **Training Progress**: `ws://localhost:8000/api/v1/training/ws/{run_id}` - Monitor training progress
 
+## 🖥️ Web Client
+
+A React web client with a blueprint-styled interface for interacting with all server features.
+
+### Start the Web Client
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+The client starts at `http://localhost:5173` and connects to the API server at `http://localhost:8000`.
+
+### Features
+
+- **Dashboard**: Overview stats (agents, conversations, evaluations, training runs)
+- **Agents**: Create, edit, delete agents with model/temperature configuration
+- **Chat**: Real-time chat with tool call visualization
+- **Conversations**: Browse and view conversation history
+- **Test Cases**: Manage evaluation test cases
+- **Evaluations**: Run evaluations and view metrics (avg reward, task success, tool efficiency)
+- **Training**: Start/stop training runs, view episode progress
+
+### Design Language
+
+Blueprint architectural aesthetic:
+- Dark blue-gray background with cyan accents
+- Monospace typography (JetBrains Mono)
+- Data-dense layouts with thin 1px borders
+- Terminal-like chat interface
+
+### Build for Production
+
+```bash
+cd web
+npm run build
+```
+
+Output is generated to `web/dist/`.
+
 ### Database
 
 The server uses SQLite for persistence with the following tables:
@@ -225,6 +266,14 @@ rl-chatbot/
 │       ├── routers/      # API route handlers
 │       ├── services/     # Business logic layer
 │       └── websocket/    # WebSocket handlers
+├── web/                  # React web client
+│   ├── src/
+│   │   ├── api/         # API client functions
+│   │   ├── hooks/       # React Query hooks
+│   │   ├── components/  # UI components (Layout, common, Chat)
+│   │   ├── pages/       # Page components
+│   │   └── types/       # TypeScript types
+│   └── dist/            # Production build output
 ├── migrations/           # Alembic database migrations
 ├── examples/             # Example scripts
 ├── docs/                 # Documentation

@@ -18,7 +18,7 @@ async def get_agent_service(session: AsyncSession = Depends(get_session)) -> Age
     return AgentService(session)
 
 
-@router.post("/", response_model=AgentRead, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=AgentRead, status_code=status.HTTP_201_CREATED)
 async def create_agent(
     agent_data: AgentCreate,
     service: AgentService = Depends(get_agent_service),
@@ -28,7 +28,7 @@ async def create_agent(
     return agent
 
 
-@router.get("/", response_model=List[AgentRead])
+@router.get("", response_model=List[AgentRead])
 async def list_agents(
     skip: int = 0,
     limit: int = 100,

@@ -1,0 +1,12 @@
+.layout {
+  display: flex;
+  height: 100%;
+  width: 100%;
+}
+
+.main {
+  flex: 1;
+  overflow: auto;
+  padding: var(--spacing-xl);
+  background: var(--bg-primary);
+}

@@ -31,7 +31,7 @@ class BulkTestCaseCreate(BaseModel):
     test_cases: List[TestCaseCreate]
 
 
-@router.post("/", response_model=TestCaseRead, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=TestCaseRead, status_code=status.HTTP_201_CREATED)
 async def create_test_case(
     test_case_data: TestCaseCreate,
     session: AsyncSession = Depends(get_session),
@@ -58,7 +58,7 @@ async def bulk_create_test_cases(
     return test_cases
 
 
-@router.get("/", response_model=List[TestCaseRead])
+@router.get("", response_model=List[TestCaseRead])
 async def list_test_cases(
     skip: int = 0,
     limit: int = 100,

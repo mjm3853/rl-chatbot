@@ -16,7 +16,7 @@ from ..schemas.chat import ConversationRead, ConversationListItem, MessageRead, 
 router = APIRouter()
 
 
-@router.get("/", response_model=List[ConversationListItem])
+@router.get("", response_model=List[ConversationListItem])
 async def list_conversations(
     agent_id: Optional[UUID] = Query(None, description="Filter by agent ID"),
     skip: int = 0,
