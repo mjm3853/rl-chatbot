@@ -17,8 +17,8 @@ class ChatbotAgent:
     def __init__(
         self,
         tool_registry: Optional[ToolRegistry] = None,
-        model: str = "gpt-4o",
-        temperature: float = 0.7,
+        model: Optional[str] = None,
+        temperature: Optional[float] = None,
         conversation_id: Optional[str] = None,
     ):
         """
@@ -26,13 +26,27 @@ class ChatbotAgent:
         
         Args:
             tool_registry: Registry of available tools. If None, creates default registry.
-            model: LLM model to use (gpt-4o recommended)
-            temperature: Temperature for LLM generation
+            model: LLM model to use. If None, reads from OPENAI_MODEL env var or defaults to "gpt-4o"
+            temperature: Temperature for LLM generation. If None, reads from OPENAI_TEMPERATURE env var or defaults to 0.7
             conversation_id: Optional conversation ID for stateful conversations
         """
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        self.model = model
-        self.temperature = temperature
+        
+        # Get model from parameter, env var, or default
+        self.model = model or os.getenv("OPENAI_MODEL", "gpt-4o")
+        
+        # Get temperature from parameter, env var, or default
+        temp_str = os.getenv("OPENAI_TEMPERATURE")
+        if temperature is not None:
+            self.temperature = temperature
+        elif temp_str is not None:
+            try:
+                self.temperature = float(temp_str)
+            except ValueError:
+                self.temperature = 0.7
+        else:
+            self.temperature = 0.7
+        
         self.conversation_id = conversation_id
         self.tool_registry = tool_registry or self._create_default_registry()
     
