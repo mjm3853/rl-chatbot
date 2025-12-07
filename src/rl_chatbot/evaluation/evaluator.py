@@ -46,11 +46,9 @@ class Evaluator:
         
         # Get response
         response = self.agent.chat(user_input)
-        
-        # Note: With Responses API, tool calls are handled internally
-        # We can't easily extract them from history, so we'll use empty list
-        # In a production system, you might want to modify the agent to track tool calls
-        tool_calls = []
+
+        # Get tool calls from the agent
+        tool_calls = self.agent.get_last_tool_calls()
         
         # Calculate metrics
         task_success = 0.0

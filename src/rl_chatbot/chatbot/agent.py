@@ -1,7 +1,8 @@
-"""Chatbot agent using the OpenAI Responses API with proper function_call_output loop."""
+"""Chatbot agent using the OpenAI Chat Completions API with function calling."""
 
 import os
 import json
+import uuid
 from typing import Optional, List, Dict, Any
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -12,7 +13,7 @@ load_dotenv()
 
 
 class ChatbotAgent:
-    """A chatbot that can call tools using the OpenAI Responses API."""
+    """A chatbot that can call tools using the OpenAI Chat Completions API."""
 
     def __init__(
         self,
@@ -27,121 +28,128 @@ class ChatbotAgent:
         self.temperature = (
             temperature
             if temperature is not None
-            else float(temp_env) if temp_env and temp_env.replace(".", "", 1).isdigit() else 0.7
+            else float(temp_env) if temp_env and temp_env.replace(".", "", 1).isdigit() else 1.0
         )
-        self.conversation_id = conversation_id
+        self.conversation_id = conversation_id or str(uuid.uuid4())
         self.tool_registry = tool_registry or self._create_default_registry()
+
+        # Conversation history
+        self.messages: List[Dict[str, Any]] = []
+
+        # Track tool calls for evaluation
+        self.last_tool_calls: List[Dict[str, Any]] = []
 
     def _create_default_registry(self) -> ToolRegistry:
         from .tools import create_default_tool_registry
         return create_default_tool_registry()
 
+    def reset(self, clear_conversation_id: bool = False):
+        """Reset the agent's conversation state."""
+        self.messages = []
+        self.last_tool_calls = []
+        if clear_conversation_id:
+            self.conversation_id = str(uuid.uuid4())
+
+    def get_conversation_id(self) -> str:
+        """Get the current conversation ID."""
+        return self.conversation_id
+
+    def get_last_tool_calls(self) -> List[Dict[str, Any]]:
+        """Get tool calls from the last interaction."""
+        return self.last_tool_calls
+
     def chat(self, user_message: str, max_iterations: int = 6) -> str:
-        """Run a turn with Responses API and local tool execution."""
+        """
+        Run a chat turn with tool calling support.
+
+        Args:
+            user_message: The user's input message
+            max_iterations: Maximum number of API calls to make (to handle tool calling loops)
+
+        Returns:
+            The chatbot's response text
+        """
+        # Add user message to conversation
+        self.messages.append({"role": "user", "content": user_message})
+
+        # Reset tool call tracking
+        self.last_tool_calls = []
+
+        # Prepare tools for function calling
         tools = self._prepare_tools()
-        messages: List[Dict[str, Any]] = [{"role": "user", "content": user_message}]
-        last_text = ""
 
+        # Iterative loop to handle function calling
         for iteration in range(max_iterations):
-            response = self.client.responses.create(
-                model=self.model,
-                input=messages,
-                tools=tools if iteration == 0 else None,  # send tools only first call
-            )
+            # Make API call
+            # Note: Some models don't support custom temperature, so only pass if it's 1.0
+            call_params = {
+                "model": self.model,
+                "messages": self.messages,
+                "tools": tools,
+            }
+            # Only add temperature if it's not the default value
+            if self.temperature != 1.0:
+                call_params["temperature"] = self.temperature
 
-            # Direct text if provided
-            ot = getattr(response, "output_text", None)
-            if isinstance(ot, str) and ot.strip():
-                return ot.strip()
+            response = self.client.chat.completions.create(**call_params)
 
-            output_items = self._get_output_items(response)
+            message = response.choices[0].message
 
-            text = self._extract_message_text(output_items)
-            if text:
-                last_text = text
+            # Add assistant's response to conversation
+            self.messages.append(message.model_dump())
 
-            tool_calls = self._extract_function_calls(output_items)
-            if not tool_calls:
-                return last_text or "No response from model."
+            # Check if there are tool calls
+            if message.tool_calls:
+                # Track tool calls for evaluation
+                for tool_call in message.tool_calls:
+                    self.last_tool_calls.append({
+                        "id": tool_call.id,
+                        "name": tool_call.function.name,
+                        "arguments": tool_call.function.arguments,
+                    })
 
-            call_outputs: List[Dict[str, Any]] = []
-            for call in tool_calls:
-                name = call.get("name", "")
-                call_id = call.get("call_id") or call.get("tool_call_id") or call.get("id")
-                args_raw = call.get("arguments", "{}")
-                try:
-                    args = json.loads(args_raw) if isinstance(args_raw, str) else args_raw
-                except Exception:
-                    args = {}
-                result = self._run_tool(name, args)
-                call_outputs.append(
-                    {
-                        "type": "function_call_output",
-                        "call_id": call_id,
-                        "output": result,
-                    }
-                )
+                # Execute each tool call
+                for tool_call in message.tool_calls:
+                    function_name = tool_call.function.name
 
-            messages.extend(output_items)
-            messages.extend(call_outputs)
-            tools = None  # only send tools on first iteration
+                    # Parse arguments
+                    try:
+                        function_args = json.loads(tool_call.function.arguments)
+                    except json.JSONDecodeError:
+                        function_args = {}
 
-        return last_text or "No response from model."
+                    # Execute the tool
+                    function_response = self._run_tool(function_name, function_args)
+
+                    # Add tool response to conversation
+                    self.messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "name": function_name,
+                        "content": function_response,
+                    })
+
+                # Continue loop to get final response
+                continue
+
+            # No tool calls - return the assistant's message
+            if message.content:
+                return message.content
+            else:
+                return "No response from model."
+
+        # Max iterations reached
+        return self.messages[-1].get("content", "Maximum iterations reached without response.")
 
     def _prepare_tools(self) -> List[Dict[str, Any]]:
+        """Prepare tools in the format expected by OpenAI API."""
         tools = []
         for schema in self.tool_registry.get_tool_schemas():
-            func_def = schema.get("function", {})
-            tools.append(
-                {
-                    "type": "function",
-                    "name": func_def.get("name"),
-                    "description": func_def.get("description", ""),
-                    "parameters": func_def.get("parameters", {}),
-                }
-            )
+            tools.append(schema)
         return tools
 
-    def _get_output_items(self, response) -> List[Dict[str, Any]]:
-        items: List[Dict[str, Any]] = []
-        if getattr(response, "output", None):
-            items = [self._normalize_item(item) for item in response.output]
-        elif getattr(response, "items", None):
-            items = [self._normalize_item(item) for item in response.items]
-        # Filter out reasoning items to avoid summary requirements when re-sending
-        return [item for item in items if item.get("type") != "reasoning"]
-
-    def _normalize_item(self, item: Any) -> Dict[str, Any]:
-        if isinstance(item, dict):
-            return item
-        d: Dict[str, Any] = {}
-        for attr in ["type", "role", "content", "name", "arguments", "call_id", "id", "tool_call_id"]:
-            if hasattr(item, attr):
-                d[attr] = getattr(item, attr)
-        return d
-
-    def _extract_message_text(self, items: List[Dict[str, Any]]) -> str:
-        for item in items:
-            if item.get("type") == "message" or item.get("role") == "assistant":
-                content = item.get("content", "")
-                if isinstance(content, str) and content.strip():
-                    return content.strip()
-                if isinstance(content, list):
-                    for c in content:
-                        if isinstance(c, str) and c.strip():
-                            return c.strip()
-                        if isinstance(c, dict) and "text" in c and str(c["text"]).strip():
-                            return str(c["text"]).strip()
-        return ""
-
-    def _extract_function_calls(self, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        calls = []
-        for item in items:
-            if item.get("type") in {"function_call", "tool_call", "function"}:
-                calls.append(item)
-        return calls
-
     def _run_tool(self, name: str, args: Dict[str, Any]) -> str:
+        """Execute a tool and return its result."""
         tool = self.tool_registry.get(name)
         if not tool:
             return f"Error: Tool '{name}' not found"
@@ -153,6 +161,7 @@ class ChatbotAgent:
 
 
 def main():
+    """Interactive chatbot session."""
     agent = ChatbotAgent()
     print("Chatbot ready! Type 'quit' to exit.\n")
     while True:

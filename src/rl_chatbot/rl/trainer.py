@@ -76,11 +76,9 @@ class RLTrainer:
             
             # Agent takes action (chats)
             response = self.agent.chat(test_case["user_input"])
-            
-            # Note: With Responses API, tool calls are handled internally
-            # We can't easily extract them, so we'll use empty actions list
-            # In a production system, you might want to modify the agent to track tool calls
-            actions = []
+
+            # Get tool calls from the agent
+            actions = self.agent.get_last_tool_calls()
             
             # Compute reward
             reward = self.reward_function.compute_reward(
