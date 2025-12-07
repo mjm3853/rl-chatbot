@@ -79,17 +79,17 @@ The `.env` file is gitignored for security. See `.env.sample` for available conf
 
 1. **Run the chatbot**:
 ```bash
-python -m rl_chatbot.chatbot.agent
+uv run rl_chatbot.chatbot.agent
 ```
 
 2. **Evaluate the chatbot**:
 ```bash
-python -m rl_chatbot.evaluation.evaluator
+uv run rl_chatbot.evaluation.evaluator
 ```
 
 3. **Train with RL**:
 ```bash
-python -m rl_chatbot.rl.trainer
+uv run rl_chatbot.rl.trainer
 ```
 
 ## 🔧 Key Concepts
