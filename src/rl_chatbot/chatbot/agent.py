@@ -100,14 +100,37 @@ class ChatbotAgent:
         if hasattr(response, 'conversation_id') and response.conversation_id:
             self.conversation_id = response.conversation_id
         
-        # Get the output text
+        # Get the output text - Responses API can have different response structures
         output_text = ""
-        if hasattr(response, 'output_text'):
-            output_text = response.output_text or ""
+        
+        # Check for output_text attribute
+        if hasattr(response, 'output_text') and response.output_text:
+            output_text = response.output_text
+        
+        # Check for output attribute (might be a list or string)
         elif hasattr(response, 'output'):
-            output_text = response.output or ""
-        else:
-            output_text = str(response) if response else ""
+            output = response.output
+            if isinstance(output, list):
+                # Extract text from message items in the output list
+                for item in output:
+                    if isinstance(item, dict) and item.get('type') == 'message':
+                        content = item.get('content', '')
+                        if content:
+                            output_text = content
+                            break
+                    elif isinstance(item, str):
+                        output_text = item
+                        break
+            elif isinstance(output, str):
+                output_text = output
+        
+        # Check for message content directly
+        if not output_text and hasattr(response, 'message'):
+            msg = response.message
+            if isinstance(msg, dict):
+                output_text = msg.get('content', '')
+            elif hasattr(msg, 'content'):
+                output_text = msg.content or ""
         
         # Handle tool calls if present
         tool_calls = None
@@ -115,6 +138,13 @@ class ChatbotAgent:
             tool_calls = response.tool_calls
         elif hasattr(response, 'tool_use') and response.tool_use:
             tool_calls = response.tool_use
+        elif hasattr(response, 'output') and isinstance(response.output, list):
+            # Check if output list contains tool calls
+            for item in response.output:
+                if isinstance(item, dict) and item.get('type') in ['function_call', 'tool_call']:
+                    if tool_calls is None:
+                        tool_calls = []
+                    tool_calls.append(item)
         
         if tool_calls:
             # Execute tool calls
