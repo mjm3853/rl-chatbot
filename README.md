@@ -6,6 +6,9 @@ A learning project for practicing reinforcement learning (RL) with a focus on ev
 
 This project provides a complete scaffold for:
 1. **Building a tool-calling chatbot** - A chatbot that can use tools/functions to accomplish tasks
+   - Uses OpenAI's **Responses API** (with fallback to Chat Completions API)
+   - Supports stateful conversations with conversation IDs
+   - Automatic tool execution and result handling
 2. **Evaluating chatbot performance** - Metrics and frameworks to measure how well the chatbot performs
 3. **Training with Reinforcement Learning** - Using RL to improve the chatbot's decision-making over time
 
