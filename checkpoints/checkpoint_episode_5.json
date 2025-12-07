@@ -1,0 +1,39 @@
+{
+  "episode": 5,
+  "training_history": [
+    {
+      "episode": 0,
+      "avg_reward": 0.625,
+      "total_reward": 2.5,
+      "num_test_cases": 4
+    },
+    {
+      "episode": 1,
+      "avg_reward": 0.625,
+      "total_reward": 2.5,
+      "num_test_cases": 4
+    },
+    {
+      "episode": 2,
+      "avg_reward": 0.625,
+      "total_reward": 2.5,
+      "num_test_cases": 4
+    },
+    {
+      "episode": 3,
+      "avg_reward": 0.625,
+      "total_reward": 2.5,
+      "num_test_cases": 4
+    },
+    {
+      "episode": 4,
+      "avg_reward": 0.625,
+      "total_reward": 2.5,
+      "num_test_cases": 4
+    }
+  ],
+  "agent_config": {
+    "model": "gpt-3.5-turbo",
+    "temperature": 0.7
+  }
+}
