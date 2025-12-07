@@ -1,4 +1,4 @@
-"""Chatbot agent using OpenAI Responses API with local tool execution."""
+"""Chatbot agent using the OpenAI Responses API with local tool execution."""
 
 import os
 import json
@@ -23,7 +23,6 @@ class ChatbotAgent:
     ):
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.model = model or os.getenv("OPENAI_MODEL", "gpt-4o")
-        # temperature is not sent to Responses API, but we keep it for potential use
         temp_env = os.getenv("OPENAI_TEMPERATURE")
         self.temperature = (
             temperature
@@ -53,23 +52,19 @@ class ChatbotAgent:
         for _ in range(max_iterations):
             response = self.client.responses.create(**params)
 
-            # Track conversation state
             conv_id = getattr(response, "conversation_id", None)
             if conv_id:
                 self.conversation_id = conv_id
                 params["conversation_id"] = conv_id
 
-            # Extract any text the model produced
             output_text = self._extract_output_text(response)
             if output_text:
                 last_text = output_text
 
-            # Extract tool calls
             tool_calls = self._extract_tool_calls(response)
             if not tool_calls:
-                return output_text or last_text
+                return output_text or last_text or "No response from model."
 
-            # Execute tools locally
             tool_results = self._execute_tools(tool_calls)
 
             if tool_results:
@@ -78,10 +73,9 @@ class ChatbotAgent:
                 params["input"] = "Tool results:\n" + "\n".join(f"- {res}" for res in tool_results)
                 continue
 
-            # If no tool results, stop to avoid looping
-            break
+            return "Tools were requested but no results were produced."
 
-        return last_text
+        return last_text or "No response from model."
 
     def _prepare_tools(self) -> List[Dict[str, Any]]:
         tools = []
@@ -97,7 +91,6 @@ class ChatbotAgent:
 
     def _extract_output_text(self, response) -> str:
         """Extract text from Responses API response."""
-        # Prefer items (primary structure)
         items = getattr(response, "items", None)
         if items:
             for item in items:
@@ -122,7 +115,6 @@ class ChatbotAgent:
                                 if isinstance(c, str):
                                     return c.strip()
 
-        # Fallback: output
         output = getattr(response, "output", None)
         if output:
             if isinstance(output, str):
@@ -145,12 +137,10 @@ class ChatbotAgent:
                     elif isinstance(item, str):
                         return item.strip()
 
-        # output_text may be a config object; only return if string
         output_text = getattr(response, "output_text", None)
         if isinstance(output_text, str):
             return output_text.strip()
 
-        # text attribute fallback
         text_attr = getattr(response, "text", None)
         if isinstance(text_attr, str):
             return text_attr.strip()
@@ -159,7 +149,6 @@ class ChatbotAgent:
 
     def _extract_tool_calls(self, response) -> List[Any]:
         tool_calls: List[Any] = []
-        # Standard attributes
         tc = getattr(response, "tool_calls", None)
         if tc:
             tool_calls.extend(tc if isinstance(tc, list) else [tc])
@@ -167,7 +156,6 @@ class ChatbotAgent:
         if tu:
             tool_calls.extend(tu if isinstance(tu, list) else [tu])
 
-        # Look inside output list
         output = getattr(response, "output", None)
         if not tool_calls and isinstance(output, list):
             for item in output:
