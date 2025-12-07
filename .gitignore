@@ -38,7 +38,9 @@ ENV/
 .env.local
 
 # Data and checkpoints
+# Keep sample/test data, ignore generated data
 data/*.json
+!data/sample_test_cases.json
 data/*.jsonl
 data/*.csv
 checkpoints/*.pt

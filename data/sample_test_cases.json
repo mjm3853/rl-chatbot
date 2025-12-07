@@ -1,0 +1,36 @@
+[
+  {
+    "user_input": "What is 15 * 23?",
+    "expected_output": "345",
+    "expected_tools": ["calculate"],
+    "task_type": "exact_match"
+  },
+  {
+    "user_input": "Calculate 100 divided by 4",
+    "expected_output": "25",
+    "expected_tools": ["calculate"],
+    "task_type": "exact_match"
+  },
+  {
+    "user_input": "What is 2 to the power of 8?",
+    "expected_output": "256",
+    "expected_tools": ["calculate"],
+    "task_type": "exact_match"
+  },
+  {
+    "user_input": "What's the weather in New York?",
+    "expected_tools": ["get_weather"],
+    "task_type": "contains"
+  },
+  {
+    "user_input": "Search for information about Python programming",
+    "expected_tools": ["search"],
+    "task_type": "contains"
+  },
+  {
+    "user_input": "Hello, how are you?",
+    "expected_tools": [],
+    "task_type": "contains"
+  }
+]
+
