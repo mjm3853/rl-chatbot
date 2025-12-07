@@ -56,10 +56,11 @@ class ChatbotAgent:
         tool_schemas = self.tool_registry.get_tool_schemas()
         tools = []
         for schema in tool_schemas:
-            # Responses API expects tools in a simpler format
+            # Responses API expects tools with type, name, description, and parameters
             # Extract the function definition from the schema
             func_def = schema.get("function", {})
             tools.append({
+                "type": "function",  # Required by Responses API
                 "name": func_def.get("name"),
                 "description": func_def.get("description", ""),
                 "parameters": func_def.get("parameters", {})
