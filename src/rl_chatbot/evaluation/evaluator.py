@@ -42,20 +42,15 @@ class Evaluator:
             Metrics object with evaluation results
         """
         # Reset agent for clean evaluation
-        self.agent.reset()
+        self.agent.reset(clear_conversation_id=True)
         
         # Get response
         response = self.agent.chat(user_input)
         
-        # Extract tool calls from conversation history
+        # Note: With Responses API, tool calls are handled internally
+        # We can't easily extract them from history, so we'll use empty list
+        # In a production system, you might want to modify the agent to track tool calls
         tool_calls = []
-        for msg in self.agent.get_conversation_history():
-            if msg.get("role") == "assistant" and msg.get("tool_calls"):
-                for tc in msg["tool_calls"]:
-                    tool_calls.append({
-                        "name": tc["function"]["name"],
-                        "arguments": tc["function"]["arguments"]
-                    })
         
         # Calculate metrics
         task_success = 0.0

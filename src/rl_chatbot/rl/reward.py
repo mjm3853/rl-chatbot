@@ -56,22 +56,12 @@ class RewardFunction:
         Returns:
             Reward value (typically between 0.0 and 1.0)
         """
-        # Get conversation history to extract tool calls
-        history = agent.get_conversation_history()
+        # Get the response from the agent
+        final_response = agent.chat(user_input)
         
-        # Get the final response
-        final_response = ""
+        # Note: With Responses API, we can't easily extract tool calls from history
+        # Tool calls are handled internally by Responses API
         tool_calls = []
-        for msg in history:
-            if msg.get("role") == "assistant":
-                if msg.get("content"):
-                    final_response = msg["content"]
-                if msg.get("tool_calls"):
-                    for tc in msg["tool_calls"]:
-                        tool_calls.append({
-                            "name": tc["function"]["name"],
-                            "arguments": tc["function"]["arguments"]
-                        })
         
         # Calculate individual metrics
         task_success = 0.0

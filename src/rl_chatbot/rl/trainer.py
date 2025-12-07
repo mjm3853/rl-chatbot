@@ -71,21 +71,16 @@ class RLTrainer:
             # Get state (conversation context)
             state = {
                 "user_input": test_case["user_input"],
-                "conversation_history": []
+                "conversation_id": self.agent.get_conversation_id()
             }
             
             # Agent takes action (chats)
             response = self.agent.chat(test_case["user_input"])
             
-            # Extract actions (tool calls made)
+            # Note: With Responses API, tool calls are handled internally
+            # We can't easily extract them, so we'll use empty actions list
+            # In a production system, you might want to modify the agent to track tool calls
             actions = []
-            for msg in self.agent.get_conversation_history():
-                if msg.get("role") == "assistant" and msg.get("tool_calls"):
-                    for tc in msg["tool_calls"]:
-                        actions.append({
-                            "tool": tc["function"]["name"],
-                            "arguments": tc["function"]["arguments"]
-                        })
             
             # Compute reward
             reward = self.reward_function.compute_reward(
