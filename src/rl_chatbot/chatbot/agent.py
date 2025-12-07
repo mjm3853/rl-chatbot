@@ -52,8 +52,18 @@ class ChatbotAgent:
         Returns:
             The chatbot's response
         """
-        # Get tool schemas
-        tools = self.tool_registry.get_tool_schemas()
+        # Get tool schemas and convert to Responses API format
+        tool_schemas = self.tool_registry.get_tool_schemas()
+        tools = []
+        for schema in tool_schemas:
+            # Responses API expects tools in a simpler format
+            # Extract the function definition from the schema
+            func_def = schema.get("function", {})
+            tools.append({
+                "name": func_def.get("name"),
+                "description": func_def.get("description", ""),
+                "parameters": func_def.get("parameters", {})
+            })
         
         # Prepare request parameters
         request_params = {
