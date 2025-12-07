@@ -2,11 +2,11 @@
 
 from typing import Dict, Any, List, Optional
 from ..evaluation.metrics import MetricCalculator
-from ..chatbot.agent import ChatbotAgent
+from ..agents.base import BaseAgent
 
 
 class RewardFunction:
-    """Computes rewards for RL training based on chatbot performance"""
+    """Computes rewards for RL training based on agent performance"""
     
     def __init__(
         self,
@@ -37,7 +37,7 @@ class RewardFunction:
     
     def compute_reward(
         self,
-        agent: ChatbotAgent,
+        agent: BaseAgent,
         user_input: str,
         expected_output: Optional[str] = None,
         expected_tools: Optional[List[str]] = None,
@@ -45,9 +45,9 @@ class RewardFunction:
     ) -> float:
         """
         Compute reward for a single interaction
-        
+
         Args:
-            agent: The chatbot agent
+            agent: The agent
             user_input: User's input
             expected_output: Expected output (if available)
             expected_tools: Expected tools to call (if available)
@@ -58,10 +58,9 @@ class RewardFunction:
         """
         # Get the response from the agent
         final_response = agent.chat(user_input)
-        
-        # Note: With Responses API, we can't easily extract tool calls from history
-        # Tool calls are handled internally by Responses API
-        tool_calls = []
+
+        # Get tool calls from the agent
+        tool_calls = agent.get_last_tool_calls()
         
         # Calculate individual metrics
         task_success = 0.0
@@ -96,14 +95,14 @@ class RewardFunction:
     
     def compute_batch_rewards(
         self,
-        agent: ChatbotAgent,
+        agent: BaseAgent,
         test_cases: List[Dict[str, Any]]
     ) -> List[float]:
         """
         Compute rewards for a batch of test cases
-        
+
         Args:
-            agent: The chatbot agent
+            agent: The agent
             test_cases: List of test case dictionaries
         
         Returns:

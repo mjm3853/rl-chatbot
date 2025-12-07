@@ -1,7 +1,7 @@
 """Tests for tool functionality"""
 
 import pytest
-from rl_chatbot.chatbot.tools import Tool, ToolRegistry, create_default_tool_registry
+from rl_chatbot.tools import Tool, ToolRegistry, create_default_tool_registry
 
 
 def test_tool_creation():

@@ -27,8 +27,8 @@
     },
     {
       "episode": 4,
-      "avg_reward": 0.4,
-      "total_reward": 1.6,
+      "avg_reward": 0.504,
+      "total_reward": 2.016,
       "num_test_cases": 4
     }
   ],

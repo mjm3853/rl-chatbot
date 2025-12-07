@@ -30,7 +30,7 @@ dev = [
 ]
 
 [project.scripts]
-chatbot = "rl_chatbot.chatbot.agent:main"
+chatbot = "rl_chatbot.agents.openai.agent:main"
 evaluate = "rl_chatbot.evaluation.evaluator:main"
 train = "rl_chatbot.rl.trainer:main"
 

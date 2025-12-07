@@ -1,13 +1,14 @@
 """RL trainer for chatbot improvement"""
 
 import os
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 from pathlib import Path
 import json
 from tqdm import tqdm
 
-from ..chatbot.agent import ChatbotAgent
-from ..evaluation.evaluator import Evaluator
+from ..agents.base import BaseAgent
+from ..factory import AgentPool
+from ..evaluation.evaluator import Evaluator, MultiAgentEvaluator
 from .reward import RewardFunction
 
 
@@ -24,7 +25,7 @@ class RLTrainer:
     
     def __init__(
         self,
-        agent: ChatbotAgent,
+        agent: BaseAgent,
         reward_function: Optional[RewardFunction] = None,
         checkpoint_dir: str = "checkpoints"
     ):
@@ -205,13 +206,148 @@ class RLTrainer:
         print(f"Checkpoint loaded from {checkpoint_path}")
 
 
+class MultiAgentRLTrainer:
+    """
+    Trainer for multiple agents with shared tools.
+
+    This allows training and comparing multiple agents with different configurations
+    (e.g., different models, temperatures, or RL strategies) while sharing tools.
+    """
+
+    def __init__(
+        self,
+        agents: Union[List[BaseAgent], AgentPool],
+        reward_function: Optional[RewardFunction] = None,
+        checkpoint_dir: str = "checkpoints"
+    ):
+        """
+        Initialize multi-agent RL trainer.
+
+        Args:
+            agents: List of agents or AgentPool to train
+            reward_function: Reward function for computing rewards
+            checkpoint_dir: Directory to save checkpoints
+        """
+        if isinstance(agents, AgentPool):
+            self.agents = list(agents.agents.values())
+            self.agent_ids = list(agents.agents.keys())
+            self.agent_pool = agents
+        else:
+            self.agents = agents
+            self.agent_ids = [agent.get_conversation_id() for agent in agents]
+            self.agent_pool = None
+
+        self.reward_function = reward_function or RewardFunction()
+        self.checkpoint_dir = Path(checkpoint_dir)
+        self.checkpoint_dir.mkdir(exist_ok=True)
+
+        # Training history for each agent
+        self.training_histories: Dict[str, List[Dict[str, Any]]] = {
+            agent_id: [] for agent_id in self.agent_ids
+        }
+
+    def train_all_agents(
+        self,
+        test_cases: List[Dict[str, Any]],
+        num_episodes: int = 10,
+        verbose: bool = True
+    ):
+        """
+        Train all agents independently.
+
+        Args:
+            test_cases: Test cases to use for training
+            num_episodes: Number of training episodes per agent
+            verbose: Whether to show progress
+        """
+        for agent_id, agent in zip(self.agent_ids, self.agents):
+            if verbose:
+                print(f"\n{'='*60}")
+                print(f"Training agent: {agent_id}")
+                print('='*60)
+
+            # Create single-agent trainer
+            trainer = RLTrainer(
+                agent=agent,
+                reward_function=self.reward_function,
+                checkpoint_dir=str(self.checkpoint_dir / agent_id)
+            )
+
+            # Train
+            trainer.train(test_cases, num_episodes=num_episodes, verbose=verbose)
+
+            # Store history
+            self.training_histories[agent_id] = trainer.training_history
+
+    def compare_agents(
+        self,
+        test_cases: List[Dict[str, Any]],
+        verbose: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Compare all trained agents.
+
+        Args:
+            test_cases: Test cases for comparison
+            verbose: Whether to show progress
+
+        Returns:
+            Comparison results with rankings
+        """
+        evaluator = MultiAgentEvaluator(self.agents)
+        return evaluator.compare_agents(test_cases, verbose=verbose)
+
+    def get_best_agent(
+        self,
+        test_cases: List[Dict[str, Any]],
+        metric: str = "reward"
+    ) -> tuple[str, BaseAgent]:
+        """
+        Get the best performing agent based on a metric.
+
+        Args:
+            test_cases: Test cases for evaluation
+            metric: Metric to use for ranking ("reward", "task_success", etc.)
+
+        Returns:
+            Tuple of (agent_id, agent)
+        """
+        comparison = self.compare_agents(test_cases, verbose=False)
+        best_agent_id = comparison["best_agent"].get(metric, comparison["best_overall"])
+
+        # Find the agent
+        for agent_id, agent in zip(self.agent_ids, self.agents):
+            if agent_id == best_agent_id:
+                return agent_id, agent
+
+        # Fallback to first agent
+        return self.agent_ids[0], self.agents[0]
+
+    def save_all_checkpoints(self, episode: int):
+        """Save checkpoints for all agents."""
+        for agent_id, history in self.training_histories.items():
+            checkpoint_path = self.checkpoint_dir / agent_id / f"checkpoint_episode_{episode}.json"
+            checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+
+            checkpoint_data = {
+                "agent_id": agent_id,
+                "episode": episode,
+                "training_history": history,
+            }
+
+            with open(checkpoint_path, 'w') as f:
+                json.dump(checkpoint_data, f, indent=2)
+
+            print(f"Checkpoint saved for {agent_id}: {checkpoint_path}")
+
+
 def main():
     """Example RL training"""
-    from ..chatbot.agent import ChatbotAgent
+    from ..agents.openai import OpenAIAgent
     from ..evaluation.evaluator import create_sample_test_cases
-    
+
     # Create agent
-    agent = ChatbotAgent()
+    agent = OpenAIAgent()
     
     # Create trainer
     trainer = RLTrainer(agent)

@@ -1,18 +1,19 @@
 """Evaluator for chatbot performance"""
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 from tqdm import tqdm
 import json
 import numpy as np
 
-from ..chatbot.agent import ChatbotAgent
+from ..agents.base import BaseAgent
+from ..factory import AgentPool
 from .metrics import Metrics, MetricCalculator
 
 
 class Evaluator:
     """Evaluates chatbot performance on test cases"""
-    
-    def __init__(self, agent: ChatbotAgent):
+
+    def __init__(self, agent: BaseAgent):
         """
         Initialize evaluator
         
@@ -152,6 +153,127 @@ class Evaluator:
         return self.evaluate_batch(test_cases, verbose=verbose)
 
 
+class MultiAgentEvaluator:
+    """Evaluates and compares multiple chatbot agents."""
+
+    def __init__(self, agents: Union[List[BaseAgent], AgentPool]):
+        """
+        Initialize multi-agent evaluator.
+
+        Args:
+            agents: List of agents or AgentPool to evaluate
+        """
+        if isinstance(agents, AgentPool):
+            self.agents = list(agents.agents.values())
+            self.agent_ids = list(agents.agents.keys())
+        else:
+            self.agents = agents
+            self.agent_ids = [agent.get_conversation_id() for agent in agents]
+
+        self.evaluators = [Evaluator(agent) for agent in self.agents]
+
+    def evaluate_single_all_agents(
+        self,
+        user_input: str,
+        expected_output: Optional[str] = None,
+        expected_tools: Optional[List[str]] = None,
+        task_type: str = "exact_match"
+    ) -> Dict[str, Metrics]:
+        """
+        Evaluate a single test case on all agents.
+
+        Args:
+            user_input: User's input message
+            expected_output: Expected output (optional)
+            expected_tools: Expected tools to call (optional)
+            task_type: Type of task matching
+
+        Returns:
+            Dictionary mapping agent IDs to their Metrics
+        """
+        results = {}
+        for agent_id, evaluator in zip(self.agent_ids, self.evaluators):
+            metrics = evaluator.evaluate_single(
+                user_input=user_input,
+                expected_output=expected_output,
+                expected_tools=expected_tools,
+                task_type=task_type
+            )
+            results[agent_id] = metrics
+        return results
+
+    def evaluate_batch_all_agents(
+        self,
+        test_cases: List[Dict[str, Any]],
+        verbose: bool = True
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Evaluate a batch of test cases on all agents.
+
+        Args:
+            test_cases: List of test case dictionaries
+            verbose: Whether to show progress
+
+        Returns:
+            Dictionary mapping agent IDs to their evaluation results
+        """
+        all_results = {}
+
+        for agent_id, evaluator in zip(self.agent_ids, self.evaluators):
+            if verbose:
+                print(f"\nEvaluating agent: {agent_id}")
+            results = evaluator.evaluate_batch(test_cases, verbose=verbose)
+            all_results[agent_id] = results
+
+        return all_results
+
+    def compare_agents(
+        self,
+        test_cases: List[Dict[str, Any]],
+        verbose: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Compare performance of all agents on test cases.
+
+        Args:
+            test_cases: List of test case dictionaries
+            verbose: Whether to show progress
+
+        Returns:
+            Dictionary with comparison results including rankings
+        """
+        # Evaluate all agents
+        all_results = self.evaluate_batch_all_agents(test_cases, verbose=verbose)
+
+        # Extract aggregate metrics for comparison
+        comparison = {
+            "agent_metrics": {},
+            "rankings": {},
+            "best_agent": {},
+        }
+
+        # Collect metrics
+        for agent_id, results in all_results.items():
+            comparison["agent_metrics"][agent_id] = results["aggregate_metrics"]
+
+        # Rank agents by each metric
+        metric_names = ["task_success", "tool_usage_efficiency", "response_quality", "reward"]
+        for metric_name in metric_names:
+            # Sort agents by metric (descending)
+            sorted_agents = sorted(
+                self.agent_ids,
+                key=lambda aid: comparison["agent_metrics"][aid][metric_name],
+                reverse=True
+            )
+            comparison["rankings"][metric_name] = sorted_agents
+            comparison["best_agent"][metric_name] = sorted_agents[0]
+
+        # Overall best agent (by reward)
+        comparison["best_overall"] = comparison["best_agent"]["reward"]
+
+        return comparison
+
+
 def create_sample_test_cases() -> List[Dict[str, Any]]:
     """Create sample test cases for evaluation"""
     return [
@@ -182,10 +304,10 @@ def create_sample_test_cases() -> List[Dict[str, Any]]:
 
 def main():
     """Example evaluation"""
-    from ..chatbot.agent import ChatbotAgent
-    
+    from ..agents.openai import OpenAIAgent
+
     # Create agent
-    agent = ChatbotAgent()
+    agent = OpenAIAgent()
     
     # Create evaluator
     evaluator = Evaluator(agent)
