@@ -39,9 +39,10 @@ class ChatbotAgent:
     def chat(self, user_message: str, max_iterations: int = 5) -> str:
         """
         Process a user message using the Responses API.
-        Executes tools locally and makes a follow-up call with tool results when needed.
+        Executes tools locally and makes a follow-up call with tool results so the model can reply.
         """
-        params: Dict[str, Any] = {"model": self.model, "input": user_message}
+        base_input = user_message
+        params: Dict[str, Any] = {"model": self.model, "input": base_input}
         tools = self._prepare_tools()
         if tools:
             params["tools"] = tools
@@ -70,7 +71,7 @@ class ChatbotAgent:
             if tool_results:
                 # Follow-up call with tool results; remove tools to avoid re-selection
                 params.pop("tools", None)
-                params["input"] = "Tool results:\n" + "\n".join(f"- {res}" for res in tool_results)
+                params["input"] = f"{base_input}\n\nTool results:\n" + "\n".join(f"- {res}" for res in tool_results)
                 continue
 
             return "Tools were requested but no results were produced."
