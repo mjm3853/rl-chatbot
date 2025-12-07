@@ -86,6 +86,7 @@ class ChatbotAgent:
         
         # Iterate until we get a final response
         # The Responses API may return tool calls that need execution
+        output_text = ""
         for iteration in range(max_iterations):
             # Call Responses API
             response = self.client.responses.create(**request_params)
@@ -102,21 +103,34 @@ class ChatbotAgent:
             tool_calls = self._extract_tool_calls(response)
             
             if tool_calls:
-                # Execute tools and prepare tool results for next iteration
+                # Execute tools locally
                 tool_results = self._execute_tools(tool_calls)
                 
-                # If we have tool results but no output text, continue the conversation
-                # The Responses API will use the conversation_id to continue
-                if not output_text.strip() and tool_results:
-                    # Continue with empty input - API will use conversation context
-                    request_params["input"] = ""
-                    continue
-                elif output_text.strip():
-                    # We have output text, return it
+                # If we have output text already, return it (tools might have been called but we got text too)
+                if output_text.strip():
                     return output_text
+                
+                # If we have tool results but no output text, make a follow-up call
+                # The Responses API will use conversation_id to continue the conversation
+                if tool_results:
+                    # For Responses API, we need to make another call to get the final response
+                    # The API should handle the conversation context via conversation_id
+                    # Use empty input to continue - the API should process tool results automatically
+                    request_params["input"] = ""
+                    # Don't include tools in follow-up calls to avoid loops
+                    if "tools" in request_params:
+                        del request_params["tools"]
+                    continue
+                else:
+                    # No tool results, something went wrong
+                    return "Error: Tools were called but no results were returned."
             else:
                 # No tool calls, return the output text
-                return output_text or ""
+                if output_text.strip():
+                    return output_text
+                # If no output and no tool calls after first iteration, we're done
+                if iteration > 0:
+                    return ""
         
         # If we've exhausted iterations, return whatever we have
         return output_text or ""
@@ -139,18 +153,33 @@ class ChatbotAgent:
         """Extract output text from Responses API response"""
         # Standard Responses API response has output_text attribute
         if hasattr(response, 'output_text') and response.output_text:
-            return response.output_text
+            return str(response.output_text).strip()
         
-        # Fallback: check output attribute
+        # Check output attribute
         if hasattr(response, 'output'):
             output = response.output
             if isinstance(output, str):
-                return output
+                return output.strip()
             elif isinstance(output, list):
-                # Extract text from message items
+                # Extract text from message items in the output list
                 for item in output:
-                    if isinstance(item, dict) and item.get('type') == 'message':
-                        return item.get('content', '')
+                    if isinstance(item, dict):
+                        # Check for message type
+                        if item.get('type') == 'message':
+                            content = item.get('content', '')
+                            if content:
+                                return str(content).strip()
+                        # Also check for text content directly
+                        if 'text' in item:
+                            return str(item['text']).strip()
+                        if 'content' in item:
+                            return str(item['content']).strip()
+                    elif isinstance(item, str):
+                        return item.strip()
+        
+        # Check for text attribute directly
+        if hasattr(response, 'text') and response.text:
+            return str(response.text).strip()
         
         return ""
     
